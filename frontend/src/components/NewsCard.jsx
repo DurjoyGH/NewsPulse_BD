@@ -1,18 +1,17 @@
-import { Bookmark, ExternalLink, Clock, User } from "lucide-react";
+import { Bookmark, ExternalLink, Clock, User, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-function NewsCard({ image, title, desc, source, date }) {
+function NewsCard({ image, title, desc, source, date, onDelete, isDashboard }) {
   const [isSaved, setIsSaved] = useState(false);
-  
+
   const handleSave = () => {
     setIsSaved(!isSaved);
   };
 
   return (
-    <article className="bg-white rounded-xl sm:rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden mb-4 sm:mb-6 border border-gray-100">
-      {/* Mobile-first layout */}
+    <article className="bg-white rounded-xl sm:rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden mb-4 sm:mb-6 border border-gray-100">
       <div className="flex flex-col sm:flex-row">
-        {/* Image Container */}
+        {/* Image */}
         <div className="relative w-full sm:w-48 lg:w-56 flex-shrink-0">
           <img
             src={image}
@@ -20,15 +19,6 @@ function NewsCard({ image, title, desc, source, date }) {
             className="w-full h-48 sm:h-40 lg:h-44 object-cover"
             loading="lazy"
           />
-          {/* Mobile save button overlay */}
-          <button
-            onClick={handleSave}
-            className="absolute top-3 right-3 sm:hidden w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md hover:bg-white transition-colors"
-          >
-            <Bookmark 
-              className={`w-4 h-4 ${isSaved ? 'fill-black text-black' : 'text-gray-600'}`} 
-            />
-          </button>
         </div>
 
         {/* Content */}
@@ -59,20 +49,35 @@ function NewsCard({ image, title, desc, source, date }) {
 
             {/* Action buttons */}
             <div className="flex items-center justify-between gap-3">
-              {/* Save button (desktop) */}
-              <button
-                onClick={handleSave}
-                className={`hidden sm:flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 ${
-                  isSaved 
-                    ? 'bg-black text-white' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <Bookmark className={`w-3 sm:w-4 h-3 sm:h-4 ${isSaved ? 'fill-white' : ''}`} />
-                {isSaved ? 'Saved' : 'Save'}
-              </button>
+              {isDashboard ? (
+                // Delete button for dashboard
+                <button
+                  onClick={onDelete}
+                  className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium bg-red-100 text-red-600 hover:bg-red-200 transition"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              ) : (
+                // Save button for homepage
+                <button
+                  onClick={handleSave}
+                  className={`hidden sm:flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 ${
+                    isSaved
+                      ? "bg-black text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  <Bookmark
+                    className={`w-3 sm:w-4 h-3 sm:h-4 ${
+                      isSaved ? "fill-white" : ""
+                    }`}
+                  />
+                  {isSaved ? "Saved" : "Save"}
+                </button>
+              )}
 
-              {/* Read more button */}
+              {/* Read More button */}
               <button className="flex items-center gap-2 text-black text-sm sm:text-base font-semibold hover:gap-3 transition-all duration-200 group">
                 <span>Read More</span>
                 <ExternalLink className="w-4 h-4 group-hover:scale-110 transition-transform" />
