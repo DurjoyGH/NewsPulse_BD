@@ -43,8 +43,8 @@ app.get("/", (req, res) => {
 })
 
 
-// Scheduled news extraction every 5 minutes
-cron.schedule('*/5 * * * *', async () => {
+// Scheduled news extraction every 1 hour
+cron.schedule('0 * * * *', async () => {
   console.log('Starting scheduled news extraction...');
   try {
     const newsItems = await newsExtractor.extractAllSources();
