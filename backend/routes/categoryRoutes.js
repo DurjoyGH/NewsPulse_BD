@@ -14,4 +14,7 @@ router.get("/summaries/:categoryId", categoryController.getSummariesByCategory);
 // Get all categories with summary counts
 router.get("/categories-with-counts", categoryController.getCategoriesWithCounts);
 
+// Get all categories
+router.get("/all", categoryController.getAllCategories);
+
 module.exports = router;

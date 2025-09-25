@@ -1,6 +1,8 @@
 const axios = require("axios");
 const Article = require("../models/Article");
 const Summary = require("../models/Summary");
+const SummaryCategory = require("../models/SummaryCategory");
+const Category = require("../models/Category");
 
 const SUMMARIZE_API_URL =
   "https://cmfyvn5v38dg62py5l86k12a1.agent.a.smyth.ai/api/summarize_bengali";
@@ -344,15 +346,26 @@ exports.getAllSummaries = async (req, res) => {
 
     const total = await Summary.countDocuments();
 
+    // Get category information for each summary
+    const summariesWithCategories = await Promise.all(
+      summaries.map(async (summary) => {
+        const summaryCategory = await SummaryCategory.findOne({ summary: summary._id })
+          .populate('category', 'name');
+        
+        return {
+          id: summary._id,
+          article: summary.article,
+          summaryText: summary.summaryText,
+          generatedAt: summary.generatedAt,
+          createdAt: summary.createdAt,
+          category: summaryCategory ? summaryCategory.category : null
+        };
+      })
+    );
+
     res.json({
       message: 'Summaries retrieved successfully',
-      summaries: summaries.map(summary => ({
-        id: summary._id,
-        article: summary.article,
-        summaryText: summary.summaryText,
-        generatedAt: summary.generatedAt,
-        createdAt: summary.createdAt
-      })),
+      summaries: summariesWithCategories,
       pagination: {
         current: page,
         pages: Math.ceil(total / limit),
@@ -366,6 +379,150 @@ exports.getAllSummaries = async (req, res) => {
     console.error('Error getting all summaries:', error);
     res.status(500).json({
       message: 'Error retrieving summaries',
+      error: error.message,
+      success: false
+    });
+  }
+};
+
+// Get summaries grouped by categories
+exports.getSummariesGroupedByCategory = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+
+    // Get all categories with their summaries
+    const categories = await Category.aggregate([
+      {
+        $lookup: {
+          from: 'summarycategories',
+          localField: '_id',
+          foreignField: 'category',
+          as: 'summaryCategories'
+        }
+      },
+      {
+        $lookup: {
+          from: 'summaries',
+          localField: 'summaryCategories.summary',
+          foreignField: '_id',
+          as: 'summaries'
+        }
+      },
+      {
+        $lookup: {
+          from: 'articles',
+          localField: 'summaries.article',
+          foreignField: '_id',
+          as: 'articles'
+        }
+      },
+      {
+        $lookup: {
+          from: 'newssources',
+          localField: 'articles.source',
+          foreignField: '_id',
+          as: 'sources'
+        }
+      },
+      {
+        $addFields: {
+          summaryCount: { $size: '$summaries' }
+        }
+      },
+      {
+        $sort: { summaryCount: -1, name: 1 }
+      }
+    ]);
+
+    // Process the data to create proper structure
+    const categoriesWithSummaries = categories.map(category => {
+      const summariesData = category.summaries.map(summary => {
+        const article = category.articles.find(art => art._id.toString() === summary.article.toString());
+        const source = article ? category.sources.find(src => src._id.toString() === article.source.toString()) : null;
+
+        return {
+          id: summary._id,
+          summaryText: summary.summaryText,
+          generatedAt: summary.generatedAt,
+          createdAt: summary.createdAt,
+          article: article ? {
+            _id: article._id,
+            title: article.title,
+            url: article.url,
+            publishedAt: article.publishedAt,
+            source: source ? {
+              _id: source._id,
+              name: source.name,
+              url: source.url
+            } : null
+          } : null
+        };
+      });
+
+      return {
+        category: {
+          _id: category._id,
+          name: category.name,
+          createdAt: category.createdAt
+        },
+        summaries: summariesData,
+        summaryCount: category.summaryCount
+      };
+    });
+
+    // Also get uncategorized summaries
+    const categorizedSummaryIds = await SummaryCategory.distinct('summary');
+    const uncategorizedSummaries = await Summary.find({
+      _id: { $nin: categorizedSummaryIds }
+    })
+    .populate('article', 'title url publishedAt source')
+    .populate({
+      path: 'article',
+      populate: {
+        path: 'source',
+        select: 'name url'
+      }
+    })
+    .sort({ createdAt: -1 });
+
+    if (uncategorizedSummaries.length > 0) {
+      categoriesWithSummaries.push({
+        category: {
+          _id: 'uncategorized',
+          name: 'Uncategorized',
+          createdAt: null
+        },
+        summaries: uncategorizedSummaries.map(summary => ({
+          id: summary._id,
+          article: summary.article,
+          summaryText: summary.summaryText,
+          generatedAt: summary.generatedAt,
+          createdAt: summary.createdAt
+        })),
+        summaryCount: uncategorizedSummaries.length
+      });
+    }
+
+    const totalSummaries = await Summary.countDocuments();
+    const totalCategories = categories.length + (uncategorizedSummaries.length > 0 ? 1 : 0);
+
+    res.json({
+      message: 'Summaries grouped by categories retrieved successfully',
+      data: categoriesWithSummaries,
+      statistics: {
+        totalCategories: totalCategories,
+        totalSummaries: totalSummaries,
+        categorizedSummaries: totalSummaries - uncategorizedSummaries.length,
+        uncategorizedSummaries: uncategorizedSummaries.length
+      },
+      success: true
+    });
+
+  } catch (error) {
+    console.error('Error getting summaries grouped by category:', error);
+    res.status(500).json({
+      message: 'Error retrieving summaries by category',
       error: error.message,
       success: false
     });

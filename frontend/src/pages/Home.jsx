@@ -2,43 +2,80 @@ import { useState, useEffect } from "react";
 import { Search, Filter, TrendingUp, Star, Loader2, AlertCircle } from "lucide-react";
 import Navbar from "../components/Navbar";
 import NewsCard from "../components/NewsCard";
-import { summaryService } from "../services/api";
+import { summaryService, categoryService } from "../services/api";
 
 function Home() {
-  const [searchQuery, setSearchQuery] = useState("All news");
+  const [selectedCategory, setSelectedCategory] = useState({ _id: 'all', name: 'All News' });
+  const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState("newest");
   
-  // State for summaries only
-  const [summaries, setSummaries] = useState([]);
+  // State for summaries by category
+  const [summariesByCategory, setSummariesByCategory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Articles are no longer needed - only showing summaries
-
-  // Fetch summaries
-  const fetchSummaries = async (page = 1) => {
+  // Fetch summaries grouped by categories
+  const fetchSummariesByCategory = async () => {
     try {
-      const response = await summaryService.getSummaries(page, 20);
+      const response = await categoryService.getSummariesGroupedByCategory();
       if (response.success) {
-        setSummaries(response.summaries || []);
+        setSummariesByCategory(response.data || []);
       }
     } catch (err) {
-      console.error('Error fetching summaries:', err);
+      console.error('Error fetching summaries by category:', err);
     }
   };
 
-  // Load data on component mount
+  // Fetch summaries by specific category
+  const fetchSummariesBySpecificCategory = async (categoryId) => {
+    try {
+      if (categoryId === 'all') {
+        // Fetch all summaries with a higher limit
+        const response = await summaryService.getSummaries(1, 200);
+        if (response.success) {
+          return response.summaries || [];
+        }
+      } else {
+        // Fetch summaries for specific category
+        const response = await categoryService.getSummariesByCategory(categoryId);
+        if (response.summaries) {
+          return response.summaries || [];
+        }
+      }
+      return [];
+    } catch (err) {
+      console.error('Error fetching summaries for category:', err);
+      return [];
+    }
+  };
+
+  // Load data on component mount and when category changes
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       setError(null);
       
       try {
-        // Only fetch summaries, no need for articles
-        await fetchSummaries(currentPage);
+        if (selectedCategory._id === 'all') {
+          // Load all summaries (not grouped by category)
+          const allSummaries = await fetchSummariesBySpecificCategory('all');
+          setSummariesByCategory([{
+            category: { _id: 'all', name: 'All News' },
+            summaries: allSummaries,
+            summaryCount: allSummaries.length
+          }]);
+        } else {
+          // Load summaries for specific category
+          const categoryData = await fetchSummariesBySpecificCategory(selectedCategory._id);
+          setSummariesByCategory([{
+            category: selectedCategory,
+            summaries: categoryData,
+            summaryCount: categoryData.length
+          }]);
+        }
       } catch (err) {
         setError('Failed to load data. Please check if the backend server is running.');
       } finally {
@@ -47,39 +84,46 @@ function Home() {
     };
 
     loadData();
-  }, [currentPage]);
+  }, [selectedCategory]);
 
-  // Display only summaries
+  // Transform summaries data for display
   const getDisplayData = () => {
-    // Only return summary data, no articles
-    const summaryData = summaries.map(summary => ({
-      id: summary._id,
-      image: summary.article?.imageUrl || "https://via.placeholder.com/400x300", 
-      title: summary.article?.title || 'No title',
-      desc: summary.summaryText ? summary.summaryText.substring(0, 200) + '...' : 'No summary available',
-      fullDesc: summary.summaryText || 'No summary available',
-      source: summary.article?.source?.name || 'Unknown',
-      date: new Date(summary.generatedAt || summary.createdAt).toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short', 
-        year: 'numeric'
-      }),
-      url: summary.article?.url,
-      type: 'summary'
-    }));
+    const allSummaries = [];
     
-    return summaryData;
+    summariesByCategory.forEach(categoryData => {
+      categoryData.summaries.forEach(summary => {
+        allSummaries.push({
+          id: summary.id || summary._id,
+          image: summary.article?.imageUrl || "https://via.placeholder.com/400x300", 
+          title: summary.article?.title || 'No title',
+          desc: summary.summaryText ? summary.summaryText.substring(0, 200) + '...' : 'No summary available',
+          fullDesc: summary.summaryText || 'No summary available',
+          source: summary.article?.source?.name || 'Unknown',
+          date: new Date(summary.generatedAt || summary.createdAt).toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short', 
+            year: 'numeric'
+          }),
+          url: summary.article?.url,
+          type: 'summary',
+          category: categoryData.category || summary.category
+        });
+      });
+    });
+    
+    return allSummaries;
   };
 
   const displayData = getDisplayData();
 
   // Filter data based on search query
-  const filteredNews = searchQuery === "All news" 
+  const filteredNews = !searchQuery 
     ? displayData
     : displayData.filter((item) =>
         item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.source.toLowerCase().includes(searchQuery.toLowerCase())
+        item.source.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.category && item.category.name.toLowerCase().includes(searchQuery.toLowerCase()))
       );
 
   // Sort filtered data
@@ -98,7 +142,7 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      <Navbar onCategorySelect={setSearchQuery} selectedCategory={searchQuery} />
+      <Navbar onCategorySelect={setSelectedCategory} selectedCategory={selectedCategory} />
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto py-4 sm:py-6 lg:py-8 px-4 sm:px-6">
@@ -119,7 +163,24 @@ function Home() {
         {/* Display Mode Info */}
         <div className="flex items-center justify-between mb-6">
           <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
-            <span className="text-blue-800 font-medium">All ({displayData.length} summaries)</span>
+            <span className="text-blue-800 font-medium">
+              {selectedCategory.name} ({displayData.length} summaries)
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            {selectedCategory._id !== 'all' && (
+              <button
+                onClick={() => setSelectedCategory({ _id: 'all', name: 'All News' })}
+                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                View All Summaries
+              </button>
+            )}
+            {/* {selectedCategory._id === 'all' && (
+              <div className="text-sm text-gray-600">
+                Use categories above to filter by topic
+              </div>
+            )} */}
           </div>
         </div>
 
@@ -179,7 +240,7 @@ function Home() {
         {/* Results count */}
         <div className="mb-4 text-sm text-gray-600">
           Showing {sortedNews.length} item{sortedNews.length !== 1 ? 's' : ''}
-          {searchQuery !== "All news" && (
+          {searchQuery && (
             <span> for "{searchQuery}"</span>
           )}
         </div>
@@ -227,9 +288,11 @@ function Home() {
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No content found</h3>
                 <p className="text-gray-600">
-                  {searchQuery !== "All news" 
+                  {searchQuery 
                     ? "Try adjusting your search terms or browse all categories."
-                    : "No articles or summaries available yet. Please check back later."
+                    : selectedCategory._id === 'all'
+                    ? "No summaries available yet. Please check back later."
+                    : `No summaries found in ${selectedCategory.name} category.`
                   }
                 </p>
               </div>

@@ -1,10 +1,13 @@
 import { User, Menu, X, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom"; 
+import { useNavigate, useLocation } from "react-router-dom";
+import { categoryService } from "../services/api"; 
 
 function Navbar({ onCategorySelect, selectedCategory, showCategories = true }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
@@ -14,6 +17,40 @@ function Navbar({ onCategorySelect, selectedCategory, showCategories = true }) {
     const token = localStorage.getItem('token');
     setIsLoggedIn(!!token);
   }, []);
+
+  // Fetch categories from the database
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoading(true);
+        const response = await categoryService.getCategoriesWithCounts();
+        if (response && response.categories) {
+          // Add "All" category at the beginning
+          const allCategories = [
+            { _id: 'all', name: 'All News', summaryCount: 0 },
+            ...response.categories
+          ];
+          setCategories(allCategories);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        // Fallback to default categories if API fails
+        setCategories([
+          { _id: 'all', name: 'All News', summaryCount: 0 },
+          { _id: 'politics', name: 'Politics', summaryCount: 0 },
+          { _id: 'sports', name: 'Sports', summaryCount: 0 },
+          { _id: 'entertainment', name: 'Entertainment', summaryCount: 0 },
+          { _id: 'technology', name: 'Technology', summaryCount: 0 }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (showCategories) {
+      fetchCategories();
+    }
+  }, [showCategories]);
   
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -21,18 +58,6 @@ function Navbar({ onCategorySelect, selectedCategory, showCategories = true }) {
     setIsLoggedIn(false);
     navigate('/home');
   };
-
-  const categories = [
-    "National",
-    "Breaking news",
-    "Political news",
-    "International news",
-    "Sports",
-    "Entertainment",
-    "Culture",
-    "Arts",
-    "All news",
-  ];
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -104,22 +129,31 @@ function Navbar({ onCategorySelect, selectedCategory, showCategories = true }) {
       </div>
 
       {/* Category Bar (Desktop) - Only shown when showCategories is true */}
-      {showCategories && (
+      {showCategories && !loading && (
         <div className="hidden md:block border-t">
           <div className="max-w-7xl mx-auto flex overflow-x-auto justify-start lg:justify-center gap-2 sm:gap-4 lg:gap-7 px-4 sm:px-6 py-3 text-sm font-medium text-gray-700">
             {categories.map((cat) => (
               <button
-                key={cat}
+                key={cat._id}
                 onClick={() => onCategorySelect(cat)}
                 className={`flex-shrink-0 px-3 py-2 rounded-md transition-all duration-200 ${
-                  selectedCategory === cat
+                  selectedCategory && selectedCategory._id === cat._id
                     ? "bg-rose-200 text-black font-semibold shadow-sm"
                     : "hover:text-black hover:bg-gray-100"
                 }`}
               >
-                {cat}
+                {cat.name} {cat.summaryCount > 0 && `(${cat.summaryCount})`}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Loading state for categories */}
+      {showCategories && loading && (
+        <div className="hidden md:block border-t">
+          <div className="max-w-7xl mx-auto flex justify-center px-4 sm:px-6 py-3">
+            <div className="text-sm text-gray-500">Loading categories...</div>
           </div>
         </div>
       )}
@@ -179,27 +213,41 @@ function Navbar({ onCategorySelect, selectedCategory, showCategories = true }) {
 
 
           {/* Mobile categories */}
-          {showCategories && (
+          {showCategories && !loading && (
             <div className="p-4 space-y-2 pb-6">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
                 Categories
               </h3>
               {categories.map((cat) => (
                 <button
-                  key={cat}
+                  key={cat._id}
                   onClick={() => {
                     onCategorySelect(cat);
                     setIsMobileMenuOpen(false);
                   }}
                   className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm font-medium ${
-                    selectedCategory === cat
+                    selectedCategory && selectedCategory._id === cat._id
                       ? "bg-rose-100 text-black font-semibold border-l-4 border-rose-400 shadow-sm"
                       : "text-gray-700 hover:bg-white hover:text-black hover:shadow-sm"
                   }`}
                 >
-                  {cat}
+                  <div className="flex justify-between items-center">
+                    <span>{cat.name}</span>
+                    {cat.summaryCount > 0 && (
+                      <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
+                        {cat.summaryCount}
+                      </span>
+                    )}
+                  </div>
                 </button>
               ))}
+            </div>
+          )}
+          
+          {/* Mobile categories loading */}
+          {showCategories && loading && (
+            <div className="p-4">
+              <div className="text-sm text-gray-500 text-center">Loading categories...</div>
             </div>
           )}
         </div>

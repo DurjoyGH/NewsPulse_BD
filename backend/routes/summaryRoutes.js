@@ -14,6 +14,7 @@ router.post("/process-all", summaryController.processAllArticlesToSummaries);
 
 // Summary management routes
 router.get("/", summaryController.getAllSummaries);
+router.get("/grouped-by-category", summaryController.getSummariesGroupedByCategory);
 router.delete("/:summaryId", summaryController.deleteSummary);
 
 // Statistics route

@@ -1,7 +1,7 @@
 import { Bookmark, ExternalLink, Clock, User, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-function NewsCard({ image, title, desc, fullDesc, source, date, url, onDelete, isDashboard }) {
+function NewsCard({ image, title, desc, fullDesc, source, date, url, category, onDelete, isDashboard }) {
   const [isSaved, setIsSaved] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
 
@@ -38,6 +38,14 @@ function NewsCard({ image, title, desc, fullDesc, source, date, url, onDelete, i
         <div className="flex-1 flex flex-col justify-between p-4 sm:p-5 lg:p-6">
           {/* Header */}
           <div className="space-y-3">
+            {/* Category Badge */}
+            {category && category.name && (
+              <div className="inline-flex items-center">
+                <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                  {category.name}
+                </span>
+              </div>
+            )}
             <h2 className="font-bold text-base sm:text-lg lg:text-xl text-gray-900 leading-tight line-clamp-2 hover:text-gray-700 transition-colors cursor-pointer">
               {title}
             </h2>
@@ -110,7 +118,7 @@ function NewsCard({ image, title, desc, fullDesc, source, date, url, onDelete, i
                     : 'text-gray-400 cursor-not-allowed'
                 }`}
               >
-                <span>{url ? 'Read More' : 'No Link'}</span>
+                <span>{url ? 'Visit' : 'No Link'}</span>
                 <ExternalLink className="w-4 h-4 group-hover:scale-110 transition-transform" />
               </button>
             </div>

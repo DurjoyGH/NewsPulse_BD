@@ -229,6 +229,36 @@ export const summaryService = {
   }
 };
 
+// Category Services
+export const categoryService = {
+  // Get all categories
+  getAllCategories: () => {
+    return apiRequest('/category/all');
+  },
+  
+  // Get categories with summary counts
+  getCategoriesWithCounts: () => {
+    return apiRequest('/category/categories-with-counts');
+  },
+  
+  // Get summaries by category
+  getSummariesByCategory: (categoryId) => {
+    return apiRequest(`/category/summaries/${categoryId}`);
+  },
+  
+  // Get summaries grouped by categories
+  getSummariesGroupedByCategory: () => {
+    return apiRequest('/summary/grouped-by-category');
+  },
+  
+  // Categorize all summaries
+  categorizeSummaries: () => {
+    return apiRequest('/category/categorize-summaries', {
+      method: 'POST'
+    });
+  }
+};
+
 // News Services (for the news.json data)
 export const newsService = {
   // Get news statistics from processing service

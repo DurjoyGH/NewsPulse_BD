@@ -207,3 +207,23 @@ exports.getCategoriesWithCounts = async (req, res) => {
     res.status(500).json({ error: "Failed to get categories with counts" });
   }
 };
+
+// Function to get all categories
+exports.getAllCategories = async (req, res) => {
+  try {
+    const categories = await Category.find({}).sort({ name: 1 });
+    
+    res.json({
+      message: "Categories retrieved successfully",
+      categories,
+      total: categories.length,
+      success: true
+    });
+  } catch (error) {
+    console.error("Error getting all categories:", error);
+    res.status(500).json({ 
+      error: "Failed to get categories",
+      success: false 
+    });
+  }
+};
