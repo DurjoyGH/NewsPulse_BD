@@ -298,3 +298,181 @@ exports.getUserProfile = async (req, res) => {
     });
   }
 };
+
+// Save article
+exports.saveArticle = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { articleId } = req.params;
+
+    // Check if already saved
+    const UserActivity = require('../models/UserActivity');
+    const existingActivity = await UserActivity.findOne({ 
+      user: userId, 
+      summary: articleId, 
+      actionType: 'saved' 
+    });
+
+    if (existingActivity) {
+      return res.status(400).json({
+        message: "Article already saved",
+        success: false
+      });
+    }
+
+    // Create new activity
+    const activity = new UserActivity({
+      user: userId,
+      summary: articleId,
+      actionType: 'saved'
+    });
+
+    await activity.save();
+
+    res.json({
+      message: "Article saved successfully",
+      success: true
+    });
+
+  } catch (error) {
+    console.error("Save article error:", error.message);
+    res.status(500).json({
+      message: "Failed to save article",
+      error: "Internal server error"
+    });
+  }
+};
+
+// Unsave article
+exports.unsaveArticle = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { articleId } = req.params;
+
+    const UserActivity = require('../models/UserActivity');
+    const result = await UserActivity.deleteOne({ 
+      user: userId, 
+      summary: articleId, 
+      actionType: 'saved' 
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        message: "Saved article not found",
+        success: false
+      });
+    }
+
+    res.json({
+      message: "Article unsaved successfully",
+      success: true
+    });
+
+  } catch (error) {
+    console.error("Unsave article error:", error.message);
+    res.status(500).json({
+      message: "Failed to unsave article",
+      error: "Internal server error"
+    });
+  }
+};
+
+// Get saved articles
+exports.getSavedArticles = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    console.log("Getting saved articles for user:", userId);
+
+    const UserActivity = require('../models/UserActivity');
+    const savedActivities = await UserActivity.find({ 
+      user: userId, 
+      actionType: 'saved' 
+    })
+    .populate({
+      path: 'summary',
+      populate: {
+        path: 'article',
+        populate: [
+          { path: 'source' },
+        ]
+      }
+    })
+    .sort({ timestamp: -1 });
+
+    console.log("Found saved activities:", savedActivities.length);
+    console.log("First activity:", savedActivities[0]);
+
+    // Get the SummaryCategory model to get category information
+    const SummaryCategory = require('../models/SummaryCategory');
+    
+    const savedArticles = [];
+    
+    for (const activity of savedActivities) {
+      if (activity.summary && activity.summary.article) {
+        // Get category for this summary
+        const summaryCategory = await SummaryCategory.findOne({ summary: activity.summary._id })
+          .populate('category');
+        
+        const article = {
+          id: activity.summary._id,
+          title: activity.summary.article.title,
+          desc: activity.summary.summaryText,
+          fullDesc: activity.summary.article.content || activity.summary.summaryText,
+          url: activity.summary.article.url,
+          imageUrl: activity.summary.article.imageUrl,
+          publishedAt: activity.summary.article.publishedAt,
+          source: activity.summary.article.source ? activity.summary.article.source.name : 'Unknown',
+          category: summaryCategory && summaryCategory.category ? {
+            _id: summaryCategory.category._id,
+            name: summaryCategory.category.name
+          } : null,
+          savedAt: activity.timestamp
+        };
+        
+        savedArticles.push(article);
+      }
+    }
+
+    res.json({
+      message: "Saved articles retrieved successfully",
+      articles: savedArticles,
+      count: savedArticles.length,
+      success: true
+    });
+
+  } catch (error) {
+    console.error("Get saved articles error:", error.message);
+    res.status(500).json({
+      message: "Failed to get saved articles",
+      error: "Internal server error"
+    });
+  }
+};
+
+// Get saved article IDs
+exports.getSavedArticleIds = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const UserActivity = require('../models/UserActivity');
+    const savedActivities = await UserActivity.find({ 
+      user: userId, 
+      actionType: 'saved' 
+    }).select('summary');
+
+    const savedIds = savedActivities.map(activity => activity.summary.toString());
+
+    res.json({
+      message: "Saved article IDs retrieved successfully",
+      savedIds: savedIds,
+      success: true
+    });
+
+  } catch (error) {
+    console.error("Get saved article IDs error:", error.message);
+    res.status(500).json({
+      message: "Failed to get saved article IDs",
+      error: "Internal server error"
+    });
+  }
+};

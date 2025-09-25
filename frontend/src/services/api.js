@@ -176,6 +176,30 @@ export const userService = {
       console.error("Delete image error:", error);
       throw error.message ? error : { message: 'Failed to delete image. Please try again.' };
     }
+  },
+
+  // Save article
+  saveArticle: (articleId) => {
+    return apiRequest(`/user/save-article/${articleId}`, {
+      method: 'POST'
+    });
+  },
+
+  // Unsave article
+  unsaveArticle: (articleId) => {
+    return apiRequest(`/user/save-article/${articleId}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // Get saved articles
+  getSavedArticles: () => {
+    return apiRequest('/user/saved-articles');
+  },
+
+  // Get saved article IDs
+  getSavedArticleIds: () => {
+    return apiRequest('/user/saved-article-ids');
   }
 };
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, Filter, TrendingUp, Star, Loader2, AlertCircle } from "lucide-react";
 import Navbar from "../components/Navbar";
 import NewsCard from "../components/NewsCard";
-import { summaryService, categoryService } from "../services/api";
+import { summaryService, categoryService, userService } from "../services/api";
 
 function Home() {
   const [selectedCategory, setSelectedCategory] = useState({ _id: 'all', name: 'All News' });
@@ -16,6 +16,7 @@ function Home() {
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [savedArticleIds, setSavedArticleIds] = useState(new Set());
 
   // Fetch summaries grouped by categories
   const fetchSummariesByCategory = async () => {
@@ -52,6 +53,36 @@ function Home() {
     }
   };
 
+  // Load saved articles IDs
+  const loadSavedArticles = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const response = await userService.getSavedArticleIds();
+        if (response.success) {
+          const savedIds = new Set(response.savedIds);
+          setSavedArticleIds(savedIds);
+        }
+      }
+    } catch (error) {
+      // User might not be logged in, ignore error
+      console.log('Could not load saved articles (user might not be logged in)');
+    }
+  };
+
+  // Handle save/unsave toggle
+  const handleSaveToggle = (articleId, isSaved) => {
+    setSavedArticleIds(prev => {
+      const newSet = new Set(prev);
+      if (isSaved) {
+        newSet.add(articleId);
+      } else {
+        newSet.delete(articleId);
+      }
+      return newSet;
+    });
+  };
+
   // Load data on component mount and when category changes
   useEffect(() => {
     const loadData = async () => {
@@ -59,6 +90,7 @@ function Home() {
       setError(null);
       
       try {
+        // Load summaries
         if (selectedCategory._id === 'all') {
           // Load all summaries (not grouped by category)
           const allSummaries = await fetchSummariesBySpecificCategory('all');
@@ -76,6 +108,9 @@ function Home() {
             summaryCount: categoryData.length
           }]);
         }
+        
+        // Load saved articles
+        await loadSavedArticles();
       } catch (err) {
         setError('Failed to load data. Please check if the backend server is running.');
       } finally {
@@ -92,8 +127,9 @@ function Home() {
     
     summariesByCategory.forEach(categoryData => {
       categoryData.summaries.forEach(summary => {
+        const articleId = summary.article?._id || summary.article?.id;
         allSummaries.push({
-          id: summary.id || summary._id,
+          id: articleId,
           image: summary.article?.imageUrl || "https://via.placeholder.com/400x300", 
           title: summary.article?.title || 'No title',
           desc: summary.summaryText ? summary.summaryText.substring(0, 200) + '...' : 'No summary available',
@@ -106,7 +142,8 @@ function Home() {
           }),
           url: summary.article?.url,
           type: 'summary',
-          category: categoryData.category || summary.category
+          category: categoryData.category || summary.category,
+          initialSaved: savedArticleIds.has(articleId)
         });
       });
     });
@@ -278,7 +315,10 @@ function Home() {
             {sortedNews.length > 0 ? (
               sortedNews.map((news) => (
                 <div key={`${news.type}-${news.id}`}>
-                  <NewsCard {...news} />
+                  <NewsCard 
+                    {...news} 
+                    onSaveToggle={handleSaveToggle}
+                  />
                 </div>
               ))
             ) : (

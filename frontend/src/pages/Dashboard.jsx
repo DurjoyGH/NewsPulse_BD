@@ -1,43 +1,49 @@
-import { useState } from "react";
-import { Filter } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Filter, Loader2, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom"; 
 import Navbar from "../components/Navbar";
 import NewsCard from "../components/NewsCard";
+import { userService } from "../services/api";
 
 function Dashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("saved");
   const [sortBy, setSortBy] = useState("newest");
-  const [savedNews, setSavedNews] = useState([
-    {
-      image: "https://via.placeholder.com/400x300",
-      title: "প্রধান উপদেষ্টার সঙ্গে বিএনপি-আওয়ামী লীগের সমাবেশ",
-      desc: "প্রধান উপদেষ্টা ও সরকারি কর্মকর্তাদের বক্তব্য আজ বিশেষ গুরুত্বপূর্ণ একটি বৈঠকে আলোচিত হয়েছে।",
-      source: "Prothom Alo",
-      date: "Sept 23, 2026",
-    },
-    {
-      image: "https://via.placeholder.com/400x300",
-      title: "গাজায় ইসরায়েলি হামলায় আরও ৩৭ ফিলিস্তিনি নিহত",
-      desc: "গাজার স্বাস্থ্য মন্ত্রণালয়ের মতে এক বিমান হামলায় বহু হতাহতের ঘটনা ঘটেছে যা আন্তর্জাতিক সম্প্রদায়ের উদ্বেগের কারণ।",
-      source: "NTV",
-      date: "Sept 23, 2026",
-    },
-    {
-      image: "https://via.placeholder.com/400x300",
-      title: "অবসর ভেঙে জাতীয় দলে ফিরলেন ডি কক",
-      desc: "বিশ্বকাপের পর অবসর নেওয়া সত্ত্বেও আবার ফিরেছেন দক্ষিণ আফ্রিকার তারকা ব্যাটসম্যান কুইনটন ডি কক।",
-      source: "Jamuna TV",
-      date: "Sept 23, 2026",
-    },
-  ]);
-
+  const [savedNews, setSavedNews] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Handle delete
-  const handleDelete = (index) => {
-    const updatedNews = savedNews.filter((_, i) => i !== index);
-    setSavedNews(updatedNews);
+  // Fetch saved articles
+  const fetchSavedArticles = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await userService.getSavedArticles();
+      if (response.success) {
+        setSavedNews(response.articles || []);
+      }
+    } catch (err) {
+      console.error('Error fetching saved articles:', err);
+      setError('Failed to load saved articles. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load saved articles on component mount
+  useEffect(() => {
+    fetchSavedArticles();
+  }, []);
+
+  // Handle delete (unsave)
+  const handleDelete = async (articleId) => {
+    try {
+      await userService.unsaveArticle(articleId);
+      setSavedNews(prev => prev.filter(article => article.id !== articleId));
+    } catch (error) {
+      console.error('Error unsaving article:', error);
+    }
   };
 
   return (
@@ -111,21 +117,67 @@ function Dashboard() {
         {/* Content */}
         {activeTab === "saved" && (
           <div>
-            {savedNews.length === 0 ? (
-              <p className="text-gray-600 text-center">No saved news yet.</p>
-            ) : (
-              savedNews.map((news, idx) => (
-                <NewsCard
-                  key={idx}
-                  image={news.image}
-                  title={news.title}
-                  desc={news.desc}
-                  source={news.source}
-                  date={news.date}
-                  onDelete={() => handleDelete(idx)}
-                  isDashboard={true}
-                />
-              ))
+            {loading && (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <span className="ml-2 text-gray-600">Loading saved articles...</span>
+              </div>
+            )}
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+                <div className="flex items-center">
+                  <AlertCircle className="w-6 h-6 text-red-600 mr-3" />
+                  <div>
+                    <h3 className="text-lg font-medium text-red-800">Error Loading Saved Articles</h3>
+                    <p className="text-red-700 mt-1">{error}</p>
+                    <button 
+                      onClick={fetchSavedArticles} 
+                      className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!loading && !error && (
+              <>
+                {savedNews.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 mb-4">
+                      <Loader2 className="w-12 h-12 mx-auto" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No saved articles yet</h3>
+                    <p className="text-gray-600">
+                      Start saving articles from the home page to see them here.
+                    </p>
+                  </div>
+                ) : (
+                  savedNews.map((news) => (
+                    <NewsCard
+                      key={news.id}
+                      id={news.id}
+                      image={news.imageUrl}
+                      title={news.title}
+                      desc={news.description?.substring(0, 200) + '...' || 'No description available'}
+                      fullDesc={news.description}
+                      source={news.source?.name || 'Unknown'}
+                      date={new Date(news.savedAt).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short', 
+                        year: 'numeric'
+                      })}
+                      url={news.url}
+                      category={news.category}
+                      onDelete={() => handleDelete(news.id)}
+                      isDashboard={true}
+                      initialSaved={true}
+                    />
+                  ))
+                )}
+              </>
             )}
           </div>
         )}

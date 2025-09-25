@@ -1,12 +1,32 @@
 import { Bookmark, ExternalLink, Clock, User, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { userService } from "../services/api";
 
-function NewsCard({ image, title, desc, fullDesc, source, date, url, category, onDelete, isDashboard }) {
-  const [isSaved, setIsSaved] = useState(false);
+function NewsCard({ image, title, desc, fullDesc, source, date, url, category, onDelete, isDashboard, id, initialSaved = false, onSaveToggle }) {
+  const [isSaved, setIsSaved] = useState(initialSaved);
   const [showFullDesc, setShowFullDesc] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSave = () => {
-    setIsSaved(!isSaved);
+  const handleSave = async () => {
+    if (isLoading) return;
+    
+    setIsLoading(true);
+    try {
+      if (isSaved) {
+        await userService.unsaveArticle(id);
+        setIsSaved(false);
+        if (onSaveToggle) onSaveToggle(id, false);
+      } else {
+        await userService.saveArticle(id);
+        setIsSaved(true);
+        if (onSaveToggle) onSaveToggle(id, true);
+      }
+    } catch (error) {
+      console.error("Error saving/unsaving article:", error);
+      // You could show a toast notification here
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleReadMore = () => {
@@ -93,18 +113,19 @@ function NewsCard({ image, title, desc, fullDesc, source, date, url, category, o
                 // Save button for homepage
                 <button
                   onClick={handleSave}
+                  disabled={isLoading}
                   className={`hidden sm:flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 ${
                     isSaved
                       ? "bg-black text-white"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
+                  } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   <Bookmark
                     className={`w-3 sm:w-4 h-3 sm:h-4 ${
                       isSaved ? "fill-white" : ""
                     }`}
                   />
-                  {isSaved ? "Saved" : "Save"}
+                  {isLoading ? "..." : (isSaved ? "Saved" : "Save")}
                 </button>
               )}
 

@@ -15,4 +15,14 @@ router.post('/upload-image', authMiddleware, userController.uploadProfileImage, 
 // Delete profile image
 router.post('/delete-image', authMiddleware, userController.deleteImage);
 
+// Save/unsave article
+router.post('/save-article/:articleId', authMiddleware, userController.saveArticle);
+router.delete('/save-article/:articleId', authMiddleware, userController.unsaveArticle);
+
+// Get saved articles
+router.get('/saved-articles', authMiddleware, userController.getSavedArticles);
+
+// Get saved article IDs
+router.get('/saved-article-ids', authMiddleware, userController.getSavedArticleIds);
+
 module.exports = router;
