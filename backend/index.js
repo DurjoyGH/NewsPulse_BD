@@ -11,6 +11,7 @@ const newsRoutes = require('./routes/newsRoutes');
 const userRoutes = require('./routes/userRoutes')
 const summaryRoutes = require('./routes/summaryRoutes')
 const categoryRoutes = require('./routes/categoryRoutes')
+const articleRoutes = require('./routes/articleRoutes')
 
 
 const app = express()
@@ -35,6 +36,7 @@ app.use('/api/news', newsRoutes);
 app.use("/api/user", userRoutes)
 app.use("/api/summary", summaryRoutes)
 app.use("/api/category", categoryRoutes)
+app.use("/api/articles", articleRoutes)
 
 app.get("/", (req, res) => {
     res.send("API is Running!")

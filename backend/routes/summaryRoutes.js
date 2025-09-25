@@ -5,8 +5,18 @@ const summaryController = require("../controllers/summaryController");
 // Existing route for text summarization
 router.post("/text", summaryController.summarizeText);
 
-// New routes for article summarization
+// Article summarization routes
 router.post("/article/:articleId", summaryController.summarizeArticle);
 router.get("/article/:articleId", summaryController.getArticleSummary);
+
+// Bulk processing routes
+router.post("/process-all", summaryController.processAllArticlesToSummaries);
+
+// Summary management routes
+router.get("/", summaryController.getAllSummaries);
+router.delete("/:summaryId", summaryController.deleteSummary);
+
+// Statistics route
+router.get("/statistics", summaryController.getSummaryStatistics);
 
 module.exports = router;
