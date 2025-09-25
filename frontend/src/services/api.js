@@ -93,6 +93,40 @@ export const userService = {
       method: 'PUT',
       body: JSON.stringify({ name })
     });
+  },
+
+  // Upload profile image
+  uploadImage: (file) => {
+    const formData = new FormData();
+    formData.append('profileImage', file);
+    
+    const token = localStorage.getItem('token');
+    
+    return fetch(`${BASE_URL}/user/upload-image`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+        // Don't set Content-Type for FormData, let browser set it
+      },
+      body: formData
+    }).then(async response => {
+      const data = await response.json();
+      if (!response.ok) {
+        throw { 
+          status: response.status, 
+          message: data.message || 'Failed to upload image',
+          data
+        };
+      }
+      return data;
+    });
+  },
+
+  // Delete profile image
+  deleteImage: () => {
+    return apiRequest('/user/delete-image', {
+      method: 'DELETE'
+    });
   }
 };
 

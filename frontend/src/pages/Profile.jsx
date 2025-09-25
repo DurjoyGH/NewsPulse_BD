@@ -8,8 +8,10 @@ function Profile() {
   
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [photo, setPhoto] = useState("https://via.placeholder.com/150");
+  const [photo, setPhoto] = useState(null);
+  const [profileImageUrl, setProfileImageUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
   const [updateSuccess, setUpdateSuccess] = useState(false);
 
@@ -22,12 +24,12 @@ function Profile() {
     setIsLoading(true);
     setError("");
     try {
-      const userData = await userService.getProfile();
-      setName(userData.name || "");
-      setEmail(userData.email || "");
+      const response = await userService.getProfile();
+      setName(response.user.name || "");
+      setEmail(response.user.email || "");
       // Set profile photo if available
-      if (userData.photo) {
-        setPhoto(userData.photo);
+      if (response.imageUrl) {
+        setProfileImageUrl(response.imageUrl);
       }
     } catch (err) {
       setError(err.message || "Failed to load profile. Please try again.");
@@ -53,8 +55,68 @@ function Profile() {
       setError(err.message || "Failed to update profile. Please try again.");
     }
   };
-  
 
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError("Please select a valid image file");
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image size should be less than 5MB");
+      return;
+    }
+
+    setIsUploading(true);
+    setError("");
+
+    try {
+      const response = await userService.uploadImage(file);
+      setProfileImageUrl(response.imageUrl);
+      setUpdateSuccess(true);
+      setTimeout(() => setUpdateSuccess(false), 3000);
+    } catch (err) {
+      setError(err.message || "Failed to upload image. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    setError("");
+    try {
+      await userService.deleteImage();
+      setProfileImageUrl(null);
+      setUpdateSuccess(true);
+      setTimeout(() => setUpdateSuccess(false), 3000);
+    } catch (err) {
+      setError(err.message || "Failed to delete image. Please try again.");
+    }
+  };
+
+  // Generate initials for default avatar
+  const getInitials = (name) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const DefaultAvatar = ({ name, size = 112 }) => (
+    <div 
+      className="rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-semibold"
+      style={{ width: size, height: size, fontSize: size / 4 }}
+    >
+      {getInitials(name || "User")}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -115,33 +177,40 @@ function Profile() {
               <>
                 {/* Profile Photo */}
                 <div className="flex flex-col items-center mb-6">
-                  <img
-                    src={photo}
-                    alt="Profile"
-                    className="w-28 h-28 rounded-full object-cover border"
-                  />
+                  {profileImageUrl ? (
+                    <img
+                      src={profileImageUrl}
+                      alt="Profile"
+                      className="w-28 h-28 rounded-full object-cover border"
+                      onError={(e) => {
+                        console.error("Failed to load profile image");
+                        setProfileImageUrl(null);
+                      }}
+                    />
+                  ) : (
+                    <DefaultAvatar name={name} />
+                  )}
+                  
                   <div className="flex gap-2 justify-center mt-3">
-                    <label className="px-3 py-1 text-xs bg-gray-100 border rounded-md hover:bg-gray-200 cursor-pointer">
-                      Change Photo
+                    <label className={`px-3 py-1 text-xs bg-gray-100 border rounded-md hover:bg-gray-200 cursor-pointer ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                      {isUploading ? 'Uploading...' : 'Change Photo'}
                       <input
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
-                          // For now, just use URL.createObjectURL to display the selected image
-                          // In a real app, you would upload this to a server
-                          if (e.target.files && e.target.files[0]) {
-                            setPhoto(URL.createObjectURL(e.target.files[0]));
-                          }
-                        }}
+                        onChange={handlePhotoChange}
+                        disabled={isUploading}
                       />
                     </label>
-                    <button
-                      onClick={() => setPhoto("https://via.placeholder.com/150")}
-                      className="px-3 py-1 text-xs bg-red-600 text-white rounded-md hover:bg-red-700"
-                    >
-                      Reset Photo
-                    </button>
+                    {profileImageUrl && (
+                      <button
+                        onClick={handleDeletePhoto}
+                        className="px-3 py-1 text-xs bg-red-600 text-white rounded-md hover:bg-red-700"
+                        disabled={isUploading}
+                      >
+                        Delete Photo
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -170,9 +239,9 @@ function Profile() {
                 <button
                   onClick={handleUpdate}
                   className="mt-6 px-5 py-2 bg-black text-white rounded-md text-sm hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  disabled={isLoading}
+                  disabled={isLoading || isUploading}
                 >
-                  {isLoading ? "Updating..." : "Update"}
+                  {isLoading ? "Updating..." : "Update Name"}
                 </button>
               </>
             )}
