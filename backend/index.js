@@ -6,6 +6,7 @@ const connectDB = require('./configs/db')
 const authRoutes = require('./routes/authRoutes')
 const userRoutes = require('./routes/userRoutes')
 const summaryRoutes = require('./routes/summaryRoutes')
+const categoryRoutes = require('./routes/categoryRoutes')
 
 const app = express()
 
@@ -23,6 +24,7 @@ connectDB()
 app.use("/api/auth", authRoutes)
 app.use("/api/user", userRoutes)
 app.use("/api/summary", summaryRoutes)
+app.use("/api/category", categoryRoutes)
 
 app.get("/", (req, res) => {
     res.send("API is Running!")
