@@ -2,6 +2,7 @@ require('dotenv').config()
 const express = require('express')
 const connectDB = require('./configs/db')
 const authRoutes = require('./routes/authRoutes')
+const summaryRoutes = require('./routes/summaryRoutes')
 
 const app = express()
 
@@ -13,6 +14,7 @@ connectDB()
 
 // Routes
 app.use("/api/auth", authRoutes)
+app.use("/api/summarize", summaryRoutes)
 
 app.get("/", (req, res) => {
     res.send("API is Running!")
