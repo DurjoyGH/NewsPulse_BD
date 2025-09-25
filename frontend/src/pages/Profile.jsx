@@ -24,14 +24,37 @@ function Profile() {
     setIsLoading(true);
     setError("");
     try {
-      const response = await userService.getProfile();
-      setName(response.user.name || "");
-      setEmail(response.user.email || "");
-      // Set profile photo if available
-      if (response.imageUrl) {
-        setProfileImageUrl(response.imageUrl);
+      const userData = await userService.getProfile();
+      
+      // Check if we have user data in the expected structure
+      if (userData.user) {
+        setName(userData.user.name || "");
+        setEmail(userData.user.email || "");
+        
+        // Handle profile image if available
+        if (userData.user.profileImage) {
+          const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+          const imageUrl = baseUrl.replace('/api', '') + '/' + userData.user.profileImage;
+          setProfileImageUrl(imageUrl);
+        } else {
+          setProfileImageUrl(null);
+        }
+      } else {
+        // Alternative structure
+        setName(userData.name || "");
+        setEmail(userData.email || "");
+        
+        // Handle profile image if available
+        if (userData.profileImage) {
+          const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+          const imageUrl = baseUrl.replace('/api', '') + '/' + userData.profileImage;
+          setProfileImageUrl(imageUrl);
+        } else {
+          setProfileImageUrl(null);
+        }
       }
     } catch (err) {
+      console.error("Profile fetch error:", err);
       setError(err.message || "Failed to load profile. Please try again.");
     } finally {
       setIsLoading(false);
@@ -77,10 +100,34 @@ function Profile() {
 
     try {
       const response = await userService.uploadImage(file);
-      setProfileImageUrl(response.imageUrl);
-      setUpdateSuccess(true);
+      
+      // Successfully uploaded, handle the image URL based on response structure
+      if (response.imageUrl) {
+        // Direct image URL in response
+        setProfileImageUrl(response.imageUrl);
+        setUpdateSuccess(true);
+      } 
+      else if (response.user && response.user.profileImage) {
+        // User object with profileImage path
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const imageUrl = baseUrl.replace('/api', '') + '/' + response.user.profileImage;
+        setProfileImageUrl(imageUrl);
+        setUpdateSuccess(true);
+      }
+      else if (response.profileImage) {
+        // Profile image path directly in response
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const imageUrl = baseUrl.replace('/api', '') + '/' + response.profileImage;
+        setProfileImageUrl(imageUrl);
+        setUpdateSuccess(true);
+      }
+      else {
+        throw new Error("Could not get image URL from server response");
+      }
+      
       setTimeout(() => setUpdateSuccess(false), 3000);
     } catch (err) {
+      console.error("Image upload error:", err);
       setError(err.message || "Failed to upload image. Please try again.");
     } finally {
       setIsUploading(false);
@@ -90,12 +137,28 @@ function Profile() {
   const handleDeletePhoto = async () => {
     setError("");
     try {
-      await userService.deleteImage();
-      setProfileImageUrl(null);
-      setUpdateSuccess(true);
-      setTimeout(() => setUpdateSuccess(false), 3000);
+      const response = await userService.deleteImage();
+      
+      // Check if delete was successful based on different response patterns
+      if (response && 
+          (response.success === true || 
+           response.message?.toLowerCase().includes("deleted") || 
+           response.message?.toLowerCase().includes("success"))
+      ) {
+        setProfileImageUrl(null);
+        setUpdateSuccess(true);
+        setTimeout(() => setUpdateSuccess(false), 3000);
+      } else {
+        // If we have a response but can't determine success
+        console.warn("Unexpected delete response format:", response);
+        setProfileImageUrl(null); // Assume it worked anyway
+        setUpdateSuccess(true);
+        setTimeout(() => setUpdateSuccess(false), 3000);
+      }
     } catch (err) {
-      setError(err.message || "Failed to delete image. Please try again.");
+      console.error("Delete image error:", err);
+      setError(typeof err === 'object' && err.message ? 
+        err.message : "Failed to delete image. Please try again.");
     }
   };
 
@@ -147,11 +210,16 @@ function Profile() {
       
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 rounded-lg px-4 py-3 mb-6 text-sm">
-            <div>{error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-600 rounded-lg px-4 py-3 mb-6 text-sm animate-fade-in">
+            <div className="flex items-start">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-1 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              </svg>
+              <span>{error}</span>
+            </div>
             <button 
               onClick={fetchUserProfile} 
-              className="mt-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+              className="mt-3 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
             >
               Retry
             </button>
@@ -160,8 +228,13 @@ function Profile() {
 
         {/* Success Message */}
         {updateSuccess && (
-          <div className="bg-green-50 border border-green-200 text-green-600 rounded-lg px-4 py-3 mb-6 text-sm">
-            Profile updated successfully!
+          <div className="bg-green-50 border border-green-200 text-green-600 rounded-lg px-4 py-3 mb-6 text-sm animate-fade-in">
+            <div className="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Profile updated successfully!
+            </div>
           </div>
         )}
 
@@ -178,22 +251,35 @@ function Profile() {
                 {/* Profile Photo */}
                 <div className="flex flex-col items-center mb-6">
                   {profileImageUrl ? (
-                    <img
-                      src={profileImageUrl}
-                      alt="Profile"
-                      className="w-28 h-28 rounded-full object-cover border"
-                      onError={(e) => {
-                        console.error("Failed to load profile image");
-                        setProfileImageUrl(null);
-                      }}
-                    />
+                    <div className="relative">
+                      <img
+                        src={profileImageUrl}
+                        alt="Profile"
+                        className="w-28 h-28 rounded-full object-cover border"
+                        onError={(e) => {
+                          console.error("Failed to load profile image:", profileImageUrl);
+                          setProfileImageUrl(null);
+                          setError("Failed to load profile image. Please try again or upload a new image.");
+                        }}
+                      />
+                      {isUploading && (
+                        <div className="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <DefaultAvatar name={name} />
                   )}
                   
                   <div className="flex gap-2 justify-center mt-3">
                     <label className={`px-3 py-1 text-xs bg-gray-100 border rounded-md hover:bg-gray-200 cursor-pointer ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                      {isUploading ? 'Uploading...' : 'Change Photo'}
+                      {isUploading ? (
+                        <span className="flex items-center">
+                          <span className="mr-1 w-3 h-3 rounded-full animate-pulse bg-gray-600"></span>
+                          Uploading...
+                        </span>
+                      ) : 'Change Photo'}
                       <input
                         type="file"
                         accept="image/*"
@@ -205,7 +291,7 @@ function Profile() {
                     {profileImageUrl && (
                       <button
                         onClick={handleDeletePhoto}
-                        className="px-3 py-1 text-xs bg-red-600 text-white rounded-md hover:bg-red-700"
+                        className={`px-3 py-1 text-xs bg-red-600 text-white rounded-md hover:bg-red-700 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         disabled={isUploading}
                       >
                         Delete Photo

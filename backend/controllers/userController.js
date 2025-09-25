@@ -1,12 +1,27 @@
 const User = require('../models/User');
 const path = require('path');
-const fs = require('fs').promises;
+const fs = require('fs');
+const fsPromises = require('fs').promises;
 const multer = require('multer');
+
+// Ensure upload directories exist
+const uploadDir = path.join(__dirname, '..', 'uploads');
+const profilesDir = path.join(uploadDir, 'profiles');
+
+// Create directories if they don't exist
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+if (!fs.existsSync(profilesDir)) {
+  fs.mkdirSync(profilesDir, { recursive: true });
+}
 
 // Configure multer for image upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/profiles/');
+    // Use absolute path to ensure correct directory
+    const uploadPath = path.join(__dirname, '..', 'uploads/profiles');
+    cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -88,6 +103,18 @@ exports.uploadImage = async (req, res) => {
         message: "No image file provided"
       });
     }
+    
+    // Verify file was saved correctly
+    try {
+      const filePath = path.join(__dirname, '..', 'uploads/profiles', req.file.filename);
+      await fsPromises.access(filePath);
+    } catch (fileErr) {
+      console.error("File access error:", fileErr);
+      return res.status(500).json({
+        message: "Failed to save uploaded file",
+        error: "File system error"
+      });
+    }
 
     const user = await User.findById(userId);
     if (!user) {
@@ -100,17 +127,38 @@ exports.uploadImage = async (req, res) => {
     if (user.profileImage) {
       try {
         const oldImagePath = path.join(__dirname, '..', user.profileImage);
-        await fs.unlink(oldImagePath);
+        await fsPromises.unlink(oldImagePath);
       } catch (err) {
         console.log("Old image not found or already deleted");
       }
     }
 
-    // Update user with new image path
+    // Update user with new image path - store path relative to server root
+    // Even though the file is saved with an absolute path, we store a relative path in the database
     const imagePath = `uploads/profiles/${req.file.filename}`;
     user.profileImage = imagePath;
-    await user.save();
+    
+    try {
+      await user.save();
+    } catch (saveErr) {
+      console.error("Database save error:", saveErr);
+      // Try to delete the uploaded file if database update fails
+      try {
+        const filePath = req.file.path; // Multer already provides the full path
+        await fsPromises.unlink(filePath);
+      } catch (unlinkErr) {
+        console.error("Failed to delete file after save error:", unlinkErr);
+      }
+      
+      return res.status(500).json({
+        message: "Failed to update user profile with new image",
+        error: "Database error"
+      });
+    }
 
+    // Construct full URL for the image
+    const imageUrl = `${req.protocol}://${req.get('host')}/${imagePath.replace(/\\/g, '/')}`;
+    
     res.json({
       message: "Profile image uploaded successfully",
       user: {
@@ -119,17 +167,18 @@ exports.uploadImage = async (req, res) => {
         email: user.email,
         profileImage: user.profileImage
       },
-      imageUrl: `${req.protocol}://${req.get('host')}/${imagePath}`,
+      imageUrl: imageUrl,
       success: true
     });
 
   } catch (error) {
     console.error("Upload image error:", error.message);
     
-    // Delete uploaded file if database update fails
+    // Delete uploaded file if any error occurs
     if (req.file) {
       try {
-        await fs.unlink(req.file.path);
+        const filePath = path.join(__dirname, '..', 'uploads/profiles', req.file.filename);
+        await fsPromises.unlink(filePath);
       } catch (unlinkError) {
         console.error("Failed to delete uploaded file:", unlinkError);
       }
@@ -137,7 +186,7 @@ exports.uploadImage = async (req, res) => {
 
     res.status(500).json({
       message: "Failed to upload image",
-      error: "Internal server error"
+      error: error.message || "Internal server error"
     });
   }
 };
@@ -163,14 +212,38 @@ exports.deleteImage = async (req, res) => {
     // Delete image file
     try {
       const imagePath = path.join(__dirname, '..', user.profileImage);
-      await fs.unlink(imagePath);
+      
+      // Check if file exists before attempting to delete
+      try {
+        await fsPromises.access(imagePath);
+      } catch (accessErr) {
+        console.log("Image file not found:", accessErr.message);
+        // Continue with user update even if file is not found
+      }
+      
+      // Attempt to delete the file
+      try {
+        await fsPromises.unlink(imagePath);
+      } catch (unlinkErr) {
+        console.log("Failed to delete image file:", unlinkErr.message);
+        // Continue with user update even if deletion fails
+      }
     } catch (err) {
-      console.log("Image file not found or already deleted");
+      console.log("Image file operation error:", err.message);
     }
 
-    // Remove image path from user
+    // Remove image path from user - do this even if file deletion failed
     user.profileImage = undefined;
-    await user.save();
+    
+    try {
+      await user.save();
+    } catch (saveErr) {
+      console.error("Error saving user after image deletion:", saveErr);
+      return res.status(500).json({
+        message: "Failed to update user after image deletion",
+        error: "Database error"
+      });
+    }
 
     res.json({
       message: "Profile image deleted successfully",

@@ -13,6 +13,6 @@ router.put('/name', authMiddleware, userController.updateUserName);
 router.post('/upload-image', authMiddleware, userController.uploadProfileImage, userController.uploadImage);
 
 // Delete profile image
-router.delete('/delete-image', authMiddleware, userController.deleteImage);
+router.post('/delete-image', authMiddleware, userController.deleteImage);
 
 module.exports = router;
