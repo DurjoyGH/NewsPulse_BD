@@ -12,11 +12,15 @@
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.0",
+    "cheerio": "^1.1.2",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.20.0",
     "mongoose": "^8.18.2",
-    "nodemon": "^3.1.10"
+    "node-cron": "^4.2.1",
+    "nodemon": "^3.1.10",
+    "rss-parser": "^3.13.0"
   }
 }
