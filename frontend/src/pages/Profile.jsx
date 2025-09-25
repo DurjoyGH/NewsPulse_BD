@@ -4,6 +4,7 @@ import Navbar from "../components/Navbar";
 
 function Profile() {
   const navigate = useNavigate();
+  
   const [name, setName] = useState("Abdullah Al Noman");
   const [email] = useState("noman@example.com");
   const [photo, setPhoto] = useState("https://via.placeholder.com/150");
