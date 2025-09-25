@@ -1,25 +1,38 @@
 import { Bookmark, ExternalLink, Clock, User, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-function NewsCard({ image, title, desc, source, date, onDelete, isDashboard }) {
+function NewsCard({ image, title, desc, fullDesc, source, date, url, onDelete, isDashboard }) {
   const [isSaved, setIsSaved] = useState(false);
+  const [showFullDesc, setShowFullDesc] = useState(false);
 
   const handleSave = () => {
     setIsSaved(!isSaved);
   };
 
+  const handleReadMore = () => {
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const toggleDescription = () => {
+    setShowFullDesc(!showFullDesc);
+  };
+
+  const hasFullDesc = fullDesc && fullDesc !== desc;
+
   return (
     <article className="bg-white rounded-xl sm:rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden mb-4 sm:mb-6 border border-gray-100">
       <div className="flex flex-col sm:flex-row">
         {/* Image */}
-        <div className="relative w-full sm:w-48 lg:w-56 flex-shrink-0">
+        {/* <div className="relative w-full sm:w-48 lg:w-56 flex-shrink-0">
           <img
             src={image}
             alt={title}
             className="w-full h-48 sm:h-40 lg:h-44 object-cover"
             loading="lazy"
           />
-        </div>
+        </div> */}
 
         {/* Content */}
         <div className="flex-1 flex flex-col justify-between p-4 sm:p-5 lg:p-6">
@@ -28,9 +41,19 @@ function NewsCard({ image, title, desc, source, date, onDelete, isDashboard }) {
             <h2 className="font-bold text-base sm:text-lg lg:text-xl text-gray-900 leading-tight line-clamp-2 hover:text-gray-700 transition-colors cursor-pointer">
               {title}
             </h2>
-            <p className="text-sm sm:text-base text-gray-600 leading-relaxed line-clamp-2 sm:line-clamp-3">
-              {desc}
-            </p>
+            <div className="text-sm sm:text-base text-gray-600 leading-relaxed">
+              <p className={showFullDesc ? "" : "line-clamp-2 sm:line-clamp-3"}>
+                {showFullDesc ? fullDesc : desc}
+              </p>
+              {hasFullDesc && (
+                <button 
+                  onClick={toggleDescription}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium mt-1 transition-colors"
+                >
+                  {showFullDesc ? 'Show Less' : 'Read More'}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Footer */}
@@ -78,8 +101,16 @@ function NewsCard({ image, title, desc, source, date, onDelete, isDashboard }) {
               )}
 
               {/* Read More button */}
-              <button className="flex items-center gap-2 text-black text-sm sm:text-base font-semibold hover:gap-3 transition-all duration-200 group">
-                <span>Read More</span>
+              <button 
+                onClick={handleReadMore}
+                disabled={!url}
+                className={`flex items-center gap-2 text-sm sm:text-base font-semibold hover:gap-3 transition-all duration-200 group ${
+                  url 
+                    ? 'text-black cursor-pointer' 
+                    : 'text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                <span>{url ? 'Read More' : 'No Link'}</span>
                 <ExternalLink className="w-4 h-4 group-hover:scale-110 transition-transform" />
               </button>
             </div>

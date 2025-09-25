@@ -179,4 +179,62 @@ export const userService = {
   }
 };
 
+// Article Services
+export const articleService = {
+  // Get all articles with pagination
+  getArticles: (page = 1, limit = 10) => {
+    return apiRequest(`/articles?page=${page}&limit=${limit}`);
+  },
+  
+  // Get single article
+  getArticle: (id) => {
+    return apiRequest(`/articles/${id}`);
+  },
+  
+  // Get article statistics
+  getStatistics: () => {
+    return apiRequest('/articles/statistics');
+  }
+};
+
+// Summary Services
+export const summaryService = {
+  // Get all summaries with pagination
+  getSummaries: (page = 1, limit = 10) => {
+    return apiRequest(`/summary?page=${page}&limit=${limit}`);
+  },
+  
+  // Get summary for specific article
+  getArticleSummary: (articleId) => {
+    return apiRequest(`/summary/article/${articleId}`);
+  },
+  
+  // Get summary statistics
+  getStatistics: () => {
+    return apiRequest('/summary/statistics');
+  },
+  
+  // Process all articles to summaries
+  processAllArticles: () => {
+    return apiRequest('/summary/process-all', {
+      method: 'POST'
+    });
+  },
+  
+  // Summarize specific article
+  summarizeArticle: (articleId) => {
+    return apiRequest(`/summary/article/${articleId}`, {
+      method: 'POST'
+    });
+  }
+};
+
+// News Services (for the news.json data)
+export const newsService = {
+  // Get news statistics from processing service
+  getNewsStatistics: () => {
+    return apiRequest('/articles/statistics');
+  }
+};
+
 export default apiRequest;

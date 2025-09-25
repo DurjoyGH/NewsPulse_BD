@@ -1,50 +1,100 @@
-import { useState } from "react";
-import { Search, Filter, TrendingUp, Star } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Filter, TrendingUp, Star, Loader2, AlertCircle } from "lucide-react";
 import Navbar from "../components/Navbar";
 import NewsCard from "../components/NewsCard";
+import { summaryService } from "../services/api";
 
 function Home() {
   const [searchQuery, setSearchQuery] = useState("All news");
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState("newest");
+  
+  // State for summaries only
+  const [summaries, setSummaries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const newsData = [
-    {
-      image: "https://via.placeholder.com/400x300",
-      title: "প্রধান উপদেষ্টার সঙ্গে বিএনপি-আওয়ামী লীগের সমাবেশ",
-      desc: "প্রধান উপদেষ্টা ও সরকারি কর্মকর্তাদের বক্তব্য আজ বিশেষ গুরুত্বপূর্ণ একটি বৈঠকে আলোচিত হয়েছে।",
-      source: "Prothom Alo",
-      date: "Sept 23, 2026",
-    },
-    {
-      image: "https://via.placeholder.com/400x300",
-      title: "গাজায় ইসরায়েলি হামলায় আরও ৩৭ ফিলিস্তিনি নিহত",
-      desc: "গাজার স্বাস্থ্য মন্ত্রণালয়ের মতে এক বিমান হামলায় বহু হতাহতের ঘটনা ঘটেছে যা আন্তর্জাতিক সম্প্রদায়ের উদ্বেগের কারণ।",
-      source: "NTV",
-      date: "Sept 23, 2026",
-    },
-    {
-      image: "https://via.placeholder.com/400x300",
-      title: "অবসর ভেঙে জাতীয় দলে ফিরলেন ডি কক",
-      desc: "বিশ্বকাপের পর অবসর নেওয়া সত্ত্বেও আবার ফিরেছেন দক্ষিণ আফ্রিকার তারকা ব্যাটসম্যান কুইনটন ডি কক।",
-      source: "Jamuna TV",
-      date: "Sept 23, 2026",
-    },
-    {
-      image: "https://via.placeholder.com/400x300",
-      title: "পাকিস্তানের সীমান্ত এলাকায় বিমান হামলায় ২৩ জন নিহত",
-      desc: "সীমান্তবর্তী অঞ্চলে ভয়াবহ বিমান হামলায় বহু হতাহতের পাশাপাশি ব্যাপক ক্ষয়ক্ষতি হয়েছে।",
-      source: "The Daily Star",
-      date: "Sept 23, 2026",
-    },
-  ];
+  // Articles are no longer needed - only showing summaries
 
-  const filteredNews =
-    searchQuery === "All news"
-      ? newsData
-      : newsData.filter((n) =>
-          n.title.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+  // Fetch summaries
+  const fetchSummaries = async (page = 1) => {
+    try {
+      const response = await summaryService.getSummaries(page, 20);
+      if (response.success) {
+        setSummaries(response.summaries || []);
+      }
+    } catch (err) {
+      console.error('Error fetching summaries:', err);
+    }
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Only fetch summaries, no need for articles
+        await fetchSummaries(currentPage);
+      } catch (err) {
+        setError('Failed to load data. Please check if the backend server is running.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [currentPage]);
+
+  // Display only summaries
+  const getDisplayData = () => {
+    // Only return summary data, no articles
+    const summaryData = summaries.map(summary => ({
+      id: summary._id,
+      image: summary.article?.imageUrl || "https://via.placeholder.com/400x300", 
+      title: summary.article?.title || 'No title',
+      desc: summary.summaryText ? summary.summaryText.substring(0, 200) + '...' : 'No summary available',
+      fullDesc: summary.summaryText || 'No summary available',
+      source: summary.article?.source?.name || 'Unknown',
+      date: new Date(summary.generatedAt || summary.createdAt).toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short', 
+        year: 'numeric'
+      }),
+      url: summary.article?.url,
+      type: 'summary'
+    }));
+    
+    return summaryData;
+  };
+
+  const displayData = getDisplayData();
+
+  // Filter data based on search query
+  const filteredNews = searchQuery === "All news" 
+    ? displayData
+    : displayData.filter((item) =>
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.source.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+
+  // Sort filtered data
+  const sortedNews = [...filteredNews].sort((a, b) => {
+    switch (sortBy) {
+      case 'newest':
+        return new Date(b.date) - new Date(a.date);
+      case 'oldest':
+        return new Date(a.date) - new Date(b.date);
+      case 'popular':
+        return b.title.length - a.title.length; // Simple popularity metric
+      default:
+        return 0;
+    }
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -63,6 +113,13 @@ function Home() {
               placeholder="Search news..."
               className="w-full pl-12 pr-4 py-3 sm:py-4 border border-gray-200 rounded-xl sm:rounded-2xl text-sm sm:text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
             />
+          </div>
+        </div>
+
+        {/* Display Mode Info */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+            <span className="text-blue-800 font-medium">All ({displayData.length} summaries)</span>
           </div>
         </div>
 
@@ -94,11 +151,11 @@ function Home() {
           <div className="flex gap-3">
             <button className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm sm:text-base font-medium hover:bg-gray-800 transition-colors">
               <Star className="w-4 h-4" />
-              <span>Today's Pick</span>
+              <span>Latest</span>
             </button>
             <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm sm:text-base bg-white hover:bg-gray-50 transition-colors">
               <TrendingUp className="w-4 h-4" />
-              <span>Trending</span>
+              <span>Popular</span>
             </button>
           </div>
         </div>
@@ -121,28 +178,91 @@ function Home() {
 
         {/* Results count */}
         <div className="mb-4 text-sm text-gray-600">
-          Showing {filteredNews.length} article{filteredNews.length !== 1 ? 's' : ''}
+          Showing {sortedNews.length} item{sortedNews.length !== 1 ? 's' : ''}
           {searchQuery !== "All news" && (
             <span> for "{searchQuery}"</span>
           )}
         </div>
 
-        {/* News Grid */}
-        <div className="space-y-4 sm:space-y-6">
-          {filteredNews.length > 0 ? (
-            filteredNews.map((news, idx) => (
-              <NewsCard key={idx} {...news} />
-            ))
-          ) : (
-            <div className="text-center py-12 sm:py-16">
-              <div className="text-gray-400 mb-4">
-                <Search className="w-12 h-12 mx-auto" />
+        {/* Loading State */}
+        {loading && (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <span className="ml-2 text-gray-600">Loading content...</span>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+            <div className="flex items-center">
+              <AlertCircle className="w-6 h-6 text-red-600 mr-3" />
+              <div>
+                <h3 className="text-lg font-medium text-red-800">Error Loading Data</h3>
+                <p className="text-red-700 mt-1">{error}</p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Retry
+                </button>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No articles found</h3>
-              <p className="text-gray-600">Try adjusting your search terms or browse all categories.</p>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* News Grid */}
+        {!loading && !error && (
+          <div className="space-y-4 sm:space-y-6">
+            {sortedNews.length > 0 ? (
+              sortedNews.map((news) => (
+                <div key={`${news.type}-${news.id}`}>
+                  <NewsCard {...news} />
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-12 sm:py-16">
+                <div className="text-gray-400 mb-4">
+                  <Search className="w-12 h-12 mx-auto" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No content found</h3>
+                <p className="text-gray-600">
+                  {searchQuery !== "All news" 
+                    ? "Try adjusting your search terms or browse all categories."
+                    : "No articles or summaries available yet. Please check back later."
+                  }
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && !error && totalPages > 1 && (
+          <div className="flex justify-center mt-8">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              
+              <span className="px-4 py-2 bg-gray-100 rounded-lg text-gray-700">
+                Page {currentPage} of {totalPages}
+              </span>
+              
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Footer */}
