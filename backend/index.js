@@ -1,5 +1,6 @@
 require('dotenv').config()
 const express = require('express')
+const cors = require('cors')
 const path = require('path')
 const connectDB = require('./configs/db')
 const authRoutes = require('./routes/authRoutes')
@@ -9,6 +10,7 @@ const summaryRoutes = require('./routes/summaryRoutes')
 const app = express()
 
 // Middleware
+app.use(cors());
 app.use(express.json());
 
 // Serve static files from uploads directory
