@@ -1,0 +1,72 @@
+erDiagram
+    USER {
+        ObjectId _id PK
+        string name
+        string email UK
+        string passwordHash
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    NEWS_SOURCE {
+        ObjectId _id PK
+        string name
+        string url
+        string rssFeedUrl
+        string logo
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    ARTICLE {
+        ObjectId _id PK
+        ObjectId source FK
+        string title
+        string content
+        string url
+        date publishedAt
+        string imageUrl
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    CATEGORY {
+        ObjectId _id PK
+        string name UK
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    ARTICLE_CATEGORY {
+        ObjectId _id PK
+        ObjectId article FK
+        ObjectId category FK
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    SUMMARY {
+        ObjectId _id PK
+        ObjectId article FK
+        string summaryText
+        date generatedAt
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    USER_ACTIVITY {
+        ObjectId _id PK
+        ObjectId user FK
+        ObjectId article FK
+        string actionType
+        date timestamp
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    NEWS_SOURCE ||--o{ ARTICLE : "publishes"
+    ARTICLE ||--o{ ARTICLE_CATEGORY : "belongs to"
+    CATEGORY ||--o{ ARTICLE_CATEGORY : "contains"
+    ARTICLE ||--o| SUMMARY : "has"
+    USER ||--o{ USER_ACTIVITY : "performs"
+    ARTICLE ||--o{ USER_ACTIVITY : "tracked on"

@@ -1,0 +1,34 @@
+flowchart TD
+    A[User Registration] --> B[User Login]
+    B --> C[Browse News Sources]
+    C --> D[View Articles by Category]
+    D --> E{User Action}
+    
+    E --> F[Read Article]
+    E --> G[Save Article]
+    E --> H[View Summary]
+    
+    F --> I[Track User Activity]
+    G --> I
+    H --> I
+    
+    I --> J[Update User Activity Log]
+    J --> K[Continue Browsing]
+    K --> D
+    
+    L[RSS Feed Crawler] --> M[Fetch Articles from News Sources]
+    M --> N[Parse Article Content]
+    N --> O[Categorize Articles]
+    O --> P[Generate AI Summary]
+    P --> Q[Store in Database]
+    Q --> R[Update Article Categories]
+    R --> S[Articles Available for Users]
+    S --> D
+
+    subgraph Admin["Admin Operations"]
+        T[Add News Source] --> U[Configure RSS Feed]
+        U --> V[Add Categories]
+        V --> W[Map Articles to Categories]
+    end
+    
+    W --> Q
