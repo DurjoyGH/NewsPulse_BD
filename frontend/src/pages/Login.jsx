@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { authService } from "../services/api";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -8,38 +9,31 @@ function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
     
-    // Simulate login delay
-    setTimeout(() => {
+    try {
       // Basic validation
       if (!email.trim() || !password.trim()) {
-        setError("Please enter both email and password");
-        setIsLoading(false);
-        return;
+        throw { message: "Please enter both email and password" };
       }
       
-      // For testing: Create mock data
-      const mockToken = "mock-auth-token-for-testing";
-      const mockUser = {
-        id: "123456",
-        name: "Test User",
-        email: email
-      };
+      // Make API call to login
+      const response = await authService.login({ email, password });
       
       // Store token and user data in localStorage
-      localStorage.setItem("token", mockToken);
-      localStorage.setItem("user", JSON.stringify(mockUser));
-      
-      console.log("Test login successful");
+      localStorage.setItem("token", response.token);
+      localStorage.setItem("user", JSON.stringify(response.user));
       
       // Redirect to home page
       navigate("/home");
+    } catch (err) {
+      setError(err.message || "Login failed. Please check your credentials.");
+    } finally {
       setIsLoading(false);
-    }, 1000); // Simulate 1 second delay for a realistic feel
+    }
   };
 
   return (
